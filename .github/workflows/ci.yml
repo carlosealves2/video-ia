@@ -178,6 +178,16 @@ jobs:
           AFFECTED=$(npx nx show projects --affected --type=app 2>/dev/null || echo "")
           echo "apps=$AFFECTED" >> $GITHUB_OUTPUT
 
+      - name: Setup languages for Go
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'false'
+          setup-go: 'true'
+
+      - name: Generate coverage for affected apps
+        if: steps.affected-apps.outputs.apps != ''
+        run: npx nx affected -t test --parallel=1
+
       - name: Install SonarQube Scanner
         if: steps.affected-apps.outputs.apps != ''
         run: npm install -g sonar-scanner
@@ -192,7 +202,7 @@ jobs:
             echo "Scanning $app..."
             if [ -f "packages/$app/sonar-project.properties" ]; then
               cd packages/$app
-              sonar-scanner -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
+              sonar-scanner -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN -Dsonar.qualitygate.wait=true
               cd ../..
             else
               echo "No sonar-project.properties found for $app, skipping..."

@@ -25,6 +25,13 @@
         "cwd": "packages/service-discover"
       }
     },
+    "coverage": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
+        "cwd": "packages/service-discover"
+      }
+    },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
