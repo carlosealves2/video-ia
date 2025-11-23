@@ -2,7 +2,18 @@
   "name": "@video-ia/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "typecheck": "nx run-many -t typecheck",
+    "affected:build": "nx affected -t build",
+    "affected:test": "nx affected -t test",
+    "affected:lint": "nx affected -t lint",
+    "graph": "nx graph",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
   "private": true,
   "dependencies": {},
   "devDependencies": {

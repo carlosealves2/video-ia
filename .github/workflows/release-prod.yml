@@ -1,0 +1,83 @@
+name: Release Prod
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+  REGISTRY: docker.io
+  IMAGE_PREFIX: suportebeloj/video-ia
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      affected_apps: ${{ steps.affected.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+          setup-go: 'false'
+          setup-python: 'false'
+
+      - run: npm ci
+
+      - name: Get affected apps
+        id: affected
+        run: |
+          AFFECTED=$(npx nx show projects --affected --type=app --json 2>/dev/null || echo '[]')
+          echo "apps=$AFFECTED" >> $GITHUB_OUTPUT
+
+  docker-prod:
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.affected_apps != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: ${{ fromJson(needs.detect-changes.outputs.affected_apps) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get app info
+        id: app-info
+        run: |
+          APP_PATH="packages/${{ matrix.app }}"
+          VERSION=$(jq -r '.["'$APP_PATH'"]' .release-please-manifest.json)
+          echo "app_path=$APP_PATH" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push prod image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ steps.app-info.outputs.app_path }}
+          file: ${{ steps.app-info.outputs.app_path }}/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ steps.app-info.outputs.version }}
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:latest
+          build-args: |
+            NODE_ENV=production
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

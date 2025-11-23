@@ -3,15 +3,48 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - '**'
   pull_request:
+  workflow_dispatch:
 
 permissions:
   actions: read
   contents: read
 
+env:
+  NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
+
 jobs:
-  main:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      affected-apps: ${{ steps.affected-apps.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+          setup-go: 'false'
+          setup-python: 'false'
+
+      - run: npm ci
+
+      - name: Set NX SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Get affected apps
+        id: affected-apps
+        run: |
+          AFFECTED=$(npx nx show projects --affected --type=app 2>/dev/null || echo "")
+          echo "apps=$AFFECTED" >> $GITHUB_OUTPUT
+
+  lint:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,23 +52,143 @@ jobs:
           filter: tree:0
           fetch-depth: 0
 
-      # This enables task distribution via Nx Cloud
-      # Run this command as early as possible, before dependencies are installed
-      # Learn more at https://nx.dev/ci/reference/nx-cloud-cli#npx-nxcloud-startcirun
-      # Uncomment this line to enable task distribution
-      # - run: npx nx start-ci-run --distribute-on="3 linux-medium-js" --stop-agents-after="build"
-
-      # Cache node_modules
-      - uses: actions/setup-node@v4
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
         with:
-          node-version: 20
-          cache: 'npm'
+          setup-node: 'true'
 
       - run: npm ci
 
-      # Prepend any command with "nx-cloud record --" to record its logs to Nx Cloud
-      # - run: npx nx-cloud record -- echo Hello World
-      - run: npx nx run-many -t lint test build typecheck
-      # Nx Cloud recommends fixes for failures to help you get CI green faster. Learn more: https://nx.dev/ci/features/self-healing-ci
-      - run: npx nx fix-ci
-        if: always()
+      - name: Set NX SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Lint affected projects
+        run: npx nx affected -t lint --parallel=3
+
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+
+      - run: npm ci
+
+      - name: Set NX SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Test affected projects
+        run: npx nx affected -t test --parallel=3
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+
+      - run: npm ci
+
+      - name: Set NX SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Build affected projects
+        run: npx nx affected -t build --parallel=3
+
+  typecheck:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+
+      - run: npm ci
+
+      - name: Set NX SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Typecheck affected projects
+        run: npx nx affected -t typecheck --parallel=3
+
+  security:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+
+      - run: npm ci
+
+      - name: Security audit
+        run: npm audit --audit-level=high
+
+  sonarqube:
+    needs: [setup, lint, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      - name: Setup languages
+        uses: ./.github/actions/setup-languages
+        with:
+          setup-node: 'true'
+
+      - run: npm ci
+
+      - name: Set NX SHAs
+        uses: nrwl/nx-set-shas@v4
+
+      - name: Get affected apps
+        id: affected-apps
+        run: |
+          AFFECTED=$(npx nx show projects --affected --type=app 2>/dev/null || echo "")
+          echo "apps=$AFFECTED" >> $GITHUB_OUTPUT
+
+      - name: SonarQube Scan for affected apps
+        if: steps.affected-apps.outputs.apps != ''
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          for app in ${{ steps.affected-apps.outputs.apps }}; do
+            echo "Scanning $app..."
+            if [ -f "packages/$app/sonar-project.properties" ]; then
+              cd packages/$app
+              npx sonar-scanner
+              cd ../..
+            else
+              echo "No sonar-project.properties found for $app, skipping..."
+            fi
+          done
+        continue-on-error: true

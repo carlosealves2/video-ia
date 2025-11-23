@@ -1,0 +1,50 @@
+name: 'Setup Languages'
+description: 'Setup Node.js, Go and Python'
+
+inputs:
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '22'
+  go-version:
+    description: 'Go version'
+    required: false
+    default: '1.23'
+  python-version:
+    description: 'Python version'
+    required: false
+    default: '3.13'
+  setup-node:
+    description: 'Setup Node.js'
+    required: false
+    default: 'true'
+  setup-go:
+    description: 'Setup Go'
+    required: false
+    default: 'false'
+  setup-python:
+    description: 'Setup Python'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      if: inputs.setup-node == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'npm'
+
+    - name: Setup Go
+      if: inputs.setup-go == 'true'
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+
+    - name: Setup Python
+      if: inputs.setup-python == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
