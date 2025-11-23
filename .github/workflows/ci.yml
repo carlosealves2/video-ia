@@ -64,7 +64,7 @@ jobs:
         uses: nrwl/nx-set-shas@v4
 
       - name: Lint affected projects
-        run: npx nx affected -t lint --parallel=3
+        run: npx nx affected -t lint --parallel=1
 
   test:
     needs: setup

@@ -2,34 +2,24 @@ package main
 
 import (
 	"log"
-	"net/http"
-	"os"
 
-	"github.com/gin-gonic/gin"
+	"github.com/carlosealves2/video-ia/service-discover/internal/bootstrap"
+	"github.com/carlosealves2/video-ia/service-discover/internal/config"
 )
 
 func main() {
-	r := gin.Default()
-
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "ok",
-		})
-	})
-
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "service-discover started",
-		})
-	})
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg, err := config.NewBuilder().WithEnv().Validate().Build()
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	log.Printf("Server starting on port %s", port)
-	if err := r.Run(":" + port); err != nil {
+	app := bootstrap.New(cfg).
+		InitLogger().
+		InitRepository().
+		InitHandlers().
+		InitRouter()
+
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
