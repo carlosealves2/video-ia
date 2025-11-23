@@ -56,6 +56,7 @@ jobs:
         uses: ./.github/actions/setup-languages
         with:
           setup-node: 'true'
+          setup-go: 'true'
 
       - run: npm ci
 
@@ -78,6 +79,7 @@ jobs:
         uses: ./.github/actions/setup-languages
         with:
           setup-node: 'true'
+          setup-go: 'true'
 
       - run: npm ci
 
@@ -100,6 +102,7 @@ jobs:
         uses: ./.github/actions/setup-languages
         with:
           setup-node: 'true'
+          setup-go: 'true'
 
       - run: npm ci
 
@@ -175,17 +178,21 @@ jobs:
           AFFECTED=$(npx nx show projects --affected --type=app 2>/dev/null || echo "")
           echo "apps=$AFFECTED" >> $GITHUB_OUTPUT
 
+      - name: Install SonarQube Scanner
+        if: steps.affected-apps.outputs.apps != ''
+        run: npm install -g sonar-scanner
+
       - name: SonarQube Scan for affected apps
         if: steps.affected-apps.outputs.apps != ''
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: https://sonarqube.alvescloud.net
         run: |
           for app in ${{ steps.affected-apps.outputs.apps }}; do
             echo "Scanning $app..."
             if [ -f "packages/$app/sonar-project.properties" ]; then
               cd packages/$app
-              npx sonar-scanner
+              sonar-scanner -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN
               cd ../..
             else
               echo "No sonar-project.properties found for $app, skipping..."

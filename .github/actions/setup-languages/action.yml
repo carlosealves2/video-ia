@@ -43,6 +43,13 @@ runs:
       with:
         go-version: ${{ inputs.go-version }}
 
+    - name: Install golangci-lint
+      if: inputs.setup-go == 'true'
+      shell: bash
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.0.2
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
     - name: Setup Python
       if: inputs.setup-python == 'true'
       uses: actions/setup-python@v5
