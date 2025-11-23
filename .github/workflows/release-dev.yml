@@ -20,7 +20,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
-      paths_released: ${{ steps.release.outputs.paths_released }}
+      service-discover--release_created: ${{ steps.release.outputs['packages/service-discover--release_created'] }}
+      service-discover--tag_name: ${{ steps.release.outputs['packages/service-discover--tag_name'] }}
+      service-discover--version: ${{ steps.release.outputs['packages/service-discover--version'] }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -32,23 +34,12 @@ jobs:
 
   docker-dev:
     needs: release-please
-    if: ${{ needs.release-please.outputs.releases_created == 'true' }}
+    if: ${{ needs.release-please.outputs['service-discover--release_created'] == 'true' }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include: ${{ fromJson(needs.release-please.outputs.paths_released || '[]') }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Get release info
-        id: release-info
-        run: |
-          APP_NAME=$(basename ${{ matrix.path }})
-          VERSION=$(jq -r '.["${{ matrix.path }}"]' .release-please-manifest.json)
-          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -62,11 +53,11 @@ jobs:
       - name: Build and push dev image
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.path }}
-          file: ${{ matrix.path }}/Dockerfile
+          context: packages/service-discover
+          file: packages/service-discover/Dockerfile
           push: true
           tags: |
-            ${{ env.IMAGE_PREFIX }}-${{ steps.release-info.outputs.app_name }}:${{ steps.release-info.outputs.version }}-dev
-            ${{ env.IMAGE_PREFIX }}-${{ steps.release-info.outputs.app_name }}:dev-latest
+            ${{ env.IMAGE_PREFIX }}-service-discover:${{ needs.release-please.outputs['service-discover--version'] }}-dev
+            ${{ env.IMAGE_PREFIX }}-service-discover:dev-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
