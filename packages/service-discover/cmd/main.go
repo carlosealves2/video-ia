@@ -21,7 +21,6 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "service-discover started",
 		})
-		
 	})
 
 	port := os.Getenv("PORT")
