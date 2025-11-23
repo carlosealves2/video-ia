@@ -1,0 +1,33 @@
+# Service Discover Tiltfile
+
+load('ext://restart_process', 'docker_build_with_restart')
+
+# Build Go binary using NX (ARM64 for local dev on Apple Silicon)
+local_resource(
+    'service-discover-compile',
+    'npx nx build-arm service-discover',
+    deps=['cmd', 'internal', 'pkg', 'go.mod', 'go.sum'],
+    dir='../..'
+)
+
+# Build Docker image with live update
+docker_build_with_restart(
+    'service-discover',
+    '.',
+    dockerfile='Dockerfile.dev',
+    only=['dist/main'],
+    entrypoint=['/main'],
+    live_update=[
+        sync('./dist/main', '/main')
+    ]
+)
+
+# Deploy to Kubernetes
+k8s_yaml(['k8s/deployment.yaml', 'k8s/service.yaml'])
+
+# Configure resource
+k8s_resource(
+    'service-discover',
+    port_forwards=['8080:8080'],
+    resource_deps=['service-discover-compile']
+)

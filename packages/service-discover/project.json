@@ -1,0 +1,50 @@
+{
+  "name": "service-discover",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "packages/service-discover",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/main ./cmd",
+        "cwd": "packages/service-discover"
+      }
+    },
+    "build-arm": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o dist/main ./cmd",
+        "cwd": "packages/service-discover"
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test ./... -v -coverprofile=coverage.out",
+        "cwd": "packages/service-discover"
+      }
+    },
+    "coverage": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go test ./... -coverprofile=coverage.out && go tool cover -func=coverage.out",
+        "cwd": "packages/service-discover"
+      }
+    },
+    "lint": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "golangci-lint run",
+        "cwd": "packages/service-discover"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "go run ./cmd",
+        "cwd": "packages/service-discover"
+      }
+    }
+  }
+}
